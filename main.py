@@ -131,7 +131,10 @@ class VQADataset(torch.utils.data.Dataset):
         image = Image.open(f"{self.image_dir}/{self.df['image'][idx]}")
         image = self.transform(image)
         question = np.zeros(len(self.idx2question) + 1)  # 未知語用の要素を追加
-        question_words = self.df["question"][idx].split(" ")
+
+        # question_words = self.df["question"][idx].split(" ")
+        #////工夫①////
+        question_words = process_text(self.df["question"][idx]).split(" ")#工夫①process_text()を利用して質問文(self.df["question"][idx])を前処理
         for word in question_words:
             try:
                 question[self.question2idx[word]] = 1  # one-hot表現に変換
@@ -361,18 +364,36 @@ def eval(model, dataloader, optimizer, criterion, device):
 def main():
     # deviceの設定
     set_seed(42)
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = "cuda:1" if torch.cuda.is_available() else "cpu"
 
-    # dataloader / model
-    transform = transforms.Compose([
+    # dataloader / model　#画像の前処理はtransformに　形状を同じにするためにResizeを利用
+    #////工夫2//// data augumentation(flipping, rotation, brightness, contrast, saturation, gaussian filter, erasing) 訓練時には適用するが、性能評価の際には適用しない
+    transform_train = transforms.Compose([
         transforms.Resize((224, 224)),
-        transforms.ToTensor()
-    ])
-    # train_dataset = VQADataset(df_path="./data/train.json", image_dir="./data/train", transform=transform)
-    train_dataset = VQADataset(df_path="./data/train.json", image_dir="./data/train1/train", transform=transform)
 
+        transforms.RandomHorizontalFlip(p=1.0), #flipping(horizontally)
+        transforms.RandomRotation(degrees=(-180, 180)),#random rotation
+        transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5),#brightness, contrast, saturation
+        transforms.GaussianBlur(kernel_size=3, sigma=(0.1, 2.0)),#Gaussian filter#
+
+        transforms.ToTensor(),
+        transforms.RandomErasing(p=0.8, scale=(0.02, 0.33), ratio=(0.3, 3.3)), #Random erasing
+
+    ])
+
+    transform_test = transforms.Compose([
+        transforms.Resize((224, 224)),
+        transforms.ToTensor(),
+    ])
+
+
+    #質問文、回答文/画像n
+    # train_dataset = VQADataset(df_path="./data/train.json", image_dir="./data/train", transform=transform)
+    train_dataset = VQADataset(df_path="./data/train.json", image_dir="./data/train1/train", transform=transform_train)
+    
     # test_dataset = VQADataset(df_path="./data/valid.json", image_dir="./data/valid", transform=transform, answer=False)
-    test_dataset = VQADataset(df_path="./data/valid.json", image_dir="./data/valid1/valid", transform=transform, answer=False)
+    test_dataset = VQADataset(df_path="./data/valid.json", image_dir="./data/valid1/valid", transform=transform_test, answer=False)
+
     test_dataset.update_dict(train_dataset)
 
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=128, shuffle=True)
@@ -405,8 +426,8 @@ def main():
 
     submission = [train_dataset.idx2answer[id] for id in submission]
     submission = np.array(submission)
-    torch.save(model.state_dict(), "model.pth")
-    np.save("submission.npy", submission)
+    torch.save(model.state_dict(), "model2.pth")
+    np.save("submission2.npy", submission)
 
 if __name__ == "__main__":
     main()
