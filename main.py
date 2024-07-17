@@ -374,7 +374,7 @@ def main():
         transforms.RandomHorizontalFlip(p=1.0), #flipping(horizontally)
         transforms.RandomRotation(degrees=(-180, 180)),#random rotation
         transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5),#brightness, contrast, saturation
-        transforms.GaussianBlur(kernel_size=3, sigma=(0.1, 2.0)),#Gaussian filter#
+        # transforms.GaussianBlur(kernel_size=3, sigma=(0.1, 2.0)),#Gaussian filter#
 
         transforms.ToTensor(),
         transforms.RandomErasing(p=0.8, scale=(0.02, 0.33), ratio=(0.3, 3.3)), #Random erasing
